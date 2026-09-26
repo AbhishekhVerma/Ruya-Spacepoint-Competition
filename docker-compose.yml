@@ -50,6 +50,7 @@ services:
       - ./grafana/data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/dashboards/threejs_digital_twin.html:/usr/share/grafana/public/threejs_digital_twin.html
     depends_on:
       - influxdb
     restart: always
