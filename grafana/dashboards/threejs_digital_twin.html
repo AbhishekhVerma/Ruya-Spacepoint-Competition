@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ru'ya SpacePoint 3D WebGL CubeSat Digital Twin</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0b0e14; color: #fff; font-family: monospace; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        #hud {
+            position: absolute; top: 10px; left: 10px; padding: 10px;
+            background: rgba(15, 23, 42, 0.85); border: 1px solid #38bdf8;
+            border-radius: 6px; font-size: 12px; pointer-events: none;
+        }
+        .status-ok { color: #4ade80; }
+        .status-warn { color: #facc15; }
+        .status-alert { color: #f87171; }
+    </style>
+
+    <!-- Import Three.js & MQTT.js via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+    <div id="hud">
+        <div><b>RU'YA CUBESAT 3D DIGITAL TWIN</b></div>
+        <div>MET: <span id="hud-met">0</span> ms</div>
+        <div>MODE: <span id="hud-mode" class="status-ok">NOMINAL_OPS</span></div>
+        <div>ATTITUDE: Q[<span id="hud-q">1.00, 0.00, 0.00, 0.00</span>]</div>
+        <div>SURFACE IR TEMP: <span id="hud-temp">--</span> °C</div>
+        <div>SOLAR LUX: <span id="hud-lux">--</span> Lux</div>
+        <div>EDGE AI ANOMALY SCORE: <span id="hud-ai" class="status-ok">0.00</span></div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // --- 1. Three.js Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 8);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        // Ambient & Directional Sun Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        sunLight.position.set(10, 5, 10);
+        sunLight.castShadow = true;
+        scene.add(sunLight);
+
+        // --- 2. Build 3U CubeSat Mesh & Solar Panel Geometry ---
+        const cubesatGroup = new THREE.Group();
+
+        // Main Chassis Aluminum Structure (10cm x 10cm x 30cm)
+        const bodyGeo = new THREE.BoxGeometry(1.0, 1.0, 3.0);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.2 });
+        const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+        cubesatGroup.add(bodyMesh);
+
+        // Solar Array Panels (Left & Right Wings)
+        const panelGeo = new THREE.BoxGeometry(1.8, 0.05, 2.8);
+        const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e1b4b, metalness: 0.9, roughness: 0.1 });
+        const panelMeshLeft = new THREE.Mesh(panelGeo, panelMat);
+        panelMeshLeft.position.set(1.4, 0, 0);
+        cubesatGroup.add(panelMeshLeft);
+
+        const panelMeshRight = new THREE.Mesh(panelGeo, panelMat);
+        panelMeshRight.position.set(-1.4, 0, 0);
+        cubesatGroup.add(panelMeshRight);
+
+        // MLX90614 Radiator Surface Target Mesh
+        const radGeo = new THREE.PlaneGeometry(0.8, 0.8);
+        const radMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, side: THREE.DoubleSide });
+        const radMesh = new THREE.Mesh(radGeo, radMat);
+        radMesh.position.set(0, 0.51, 0);
+        radMesh.rotation.x = Math.PI / 2;
+        cubesatGroup.add(radMesh);
+
+        scene.add(cubesatGroup);
+
+        // Earth Background Model Simulation
+        const earthGeo = new THREE.SphereGeometry(25, 32, 32);
+        const earthMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, wireframe: true });
+        const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+        earthMesh.position.set(0, -28, 0);
+        scene.add(earthMesh);
+
+        // Render Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            earthMesh.rotation.y += 0.0005;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // --- 3. MQTT Live Telemetry Listener ---
+        const mqttClient = mqtt.connect('ws://localhost:9001');
+
+        mqttClient.on('connect', () => {
+            console.log('[Digital Twin] Connected to Ground Station MQTT WebSockets');
+            mqttClient.subscribe('spacepoint/telemetry/json');
+        });
+
+        mqttClient.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                
+                // Update HUD Text
+                document.getElementById('hud-met').innerText = data.met_ms || 0;
+                document.getElementById('hud-q').innerText = `${data.adcs.q0.toFixed(2)}, ${data.adcs.q1.toFixed(2)}, ${data.adcs.q2.toFixed(2)}, ${data.adcs.q3.toFixed(2)}`;
+                document.getElementById('hud-temp').innerText = data.tcs.ir_c.toFixed(1);
+                document.getElementById('hud-lux').innerText = data.adcs.lux.toFixed(0);
+
+                const modeElem = document.getElementById('hud-mode');
+                const modes = ["BOOT_LAUNCH", "DETUMBLE", "NOMINAL_OPS", "ECLIPSE", "SAFEHOLD"];
+                modeElem.innerText = modes[data.flight_mode] || "UNKNOWN";
+                
+                if (data.flight_mode === 4) modeElem.className = "status-alert";
+                else if (data.flight_mode === 1) modeElem.className = "status-warn";
+                else modeElem.className = "status-ok";
+
+                const aiElem = document.getElementById('hud-ai');
+                aiElem.innerText = data.edge_ai_score.toFixed(2);
+                aiElem.className = (data.edge_ai_score > 2.5) ? "status-alert" : "status-ok";
+
+                // Update 3D Quaternion Orientation
+                const q = new THREE.Quaternion(data.adcs.q1, data.adcs.q2, data.adcs.q3, data.adcs.q0);
+                cubesatGroup.setRotationFromQuaternion(q);
+
+                // Update Thermal Heatmap Palette Shader on MLX90614 Radiator Surface
+                const temp = data.tcs.ir_c;
+                if (temp > 60) radMat.color.setHex(0xef4444); // Crimson Hot
+                else if (temp > 35) radMat.color.setHex(0xeab308); // Warm Yellow
+                else radMat.color.setHex(0x0284c7); // Cool Blue
+
+                // Update Sun Lighting Intensity (Eclipse Transition)
+                sunLight.intensity = (data.adcs.lux > 10) ? 1.5 : 0.05;
+
+            } catch (e) {
+                console.error("Telemetry parse error:", e);
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: spacepoint_mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    restart: always
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: spacepoint_influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=spacepoint_admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=ruya_spacepoint_2026
+      - DOCKER_INFLUXDB_INIT_ORG=ruya_spacepoint
+      - DOCKER_INFLUXDB_INIT_BUCKET=cubesat_telemetry
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=ruya_super_secret_token_2026
+    volumes:
+      - ./influxdb/data:/var/lib/influxdb2
+    restart: always
+
+  telegraf:
+    image: telegraf:1.28
+    container_name: spacepoint_telegraf
+    depends_on:
+      - mosquitto
+      - influxdb
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    restart: always
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: spacepoint_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=spacepoint
+      - GF_PANELS_DISABLE_SANITIZE_HTML=true
+    volumes:
+      - ./grafana/data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - influxdb
+    restart: always
+
+  ground_simulator:
+    build:
+      context: ./ground_segment
+      dockerfile: Dockerfile
+    container_name: spacepoint_orbit_simulator
+    depends_on:
+      - mosquitto
+    restart: always
