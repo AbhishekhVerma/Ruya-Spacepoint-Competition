@@ -4,11 +4,12 @@
  * IDE: Arduino IDE (v2.x or v1.8.x)
  * 
  * Sensors:
- * - DHT22: GPIO 4 (Humidity & Ambient Temp)
- * - BH1750: I2C GPIO 8 (SDA) / GPIO 9 (SCL), Addr 0x23 (Coarse Sun Sensor)
- * - MLX90614: I2C GPIO 8 (SDA) / GPIO 9 (SCL), Addr 0x5A (IR Thermal Payload)
- * - MPU6050: I2C GPIO 8 (SDA) / GPIO 9 (SCL), Addr 0x68 (ADCS 6-DOF IMU)
- * - Gas Sensor: GPIO 1 (ADC1_CH0, ECLSS Air Quality)
+ * Sensors:
+ * - DHT22: GPIO 5 (Humidity & Ambient Temp)
+ * - BH1750: I2C GPIO 6 (SDA) / GPIO 7 (SCL), Addr 0x23 (Coarse Sun Sensor)
+ * - MLX90614: I2C GPIO 6 (SDA) / GPIO 7 (SCL), Addr 0x5A (IR Thermal Payload)
+ * - MPU6050: I2C GPIO 6 (SDA) / GPIO 7 (SCL), Addr 0x68 (ADCS 6-DOF IMU)
+ * - Gas Sensor: GPIO 4 (ADC1_CH3, ECLSS Air Quality)
  */
 
 #include <Arduino.h>
@@ -24,16 +25,16 @@
 #include "ccsds_telemetry.h"
 
 // --- Pin Assignments ---
-#define I2C_SDA_PIN    8
-#define I2C_SCL_PIN    9
-#define DHT_PIN        4
+#define GAS_ADC_PIN    4   // Gas Sensor Analog Out (Must be ADC1 pin on ESP32-S3)
+#define DHT_PIN        5   // DHT22 Data Pin
+#define I2C_SDA_PIN    6   // I2C SDA (for MPU6050, BH1750, MLX90614)
+#define I2C_SCL_PIN    7   // I2C SCL (for MPU6050, BH1750, MLX90614)
 #define DHT_TYPE       DHT22
-#define GAS_ADC_PIN    1
 
 // --- Network & MQTT Settings ---
-const char* WIFI_SSID     = "RuyaSpacePoint_Lab";
-const char* WIFI_PASSWORD = "SpacePoint2026";
-const char* MQTT_SERVER   = "192.168.1.100"; // Replace with your computer/server IP address
+const char* WIFI_SSID     = "TinyGS-Network";
+const char* WIFI_PASSWORD = "groundst";
+const char* MQTT_SERVER   = "192.168.5.116"; // Replace with your computer/server IP address
 const int   MQTT_PORT     = 1883;
 
 // --- Sensor Objects ---
