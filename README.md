@@ -203,7 +203,7 @@ mosquitto_pub -h localhost -t "spacepoint/commands/fault" -m "RESET_FAULTS"
 
 ---
 
-## 🏆 Competition Evaluation Criteria
+## 🏆 Sample Competition Evaluation Criteria
 
 1. **Space Systems Engineering (25%)**: C&DH state machine implementation, Mission Elapsed Time (MET), and CCSDS packet framing.
 2. **Firmware Integrity & Multi-Tasking (20%)**: FreeRTOS task isolation across dual cores and I2C lockup recovery.
