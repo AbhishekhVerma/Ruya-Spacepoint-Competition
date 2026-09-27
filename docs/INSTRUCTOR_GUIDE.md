@@ -115,7 +115,7 @@ mosquitto_pub -h localhost -t "spacepoint/commands/fault" -m "RESET_FAULTS"
 
 ---
 
-## 4. Competition Judging Rubric
+## 4. Sample Competition Judging Rubric
 
 ```
 +------------------------------------------------------------------------+
