@@ -34,7 +34,7 @@
 // --- Network & MQTT Settings ---
 const char* WIFI_SSID     = "TinyGS-Network";
 const char* WIFI_PASSWORD = "groundst";
-const char* MQTT_SERVER   = "192.168.5.116"; // Replace with your computer/server IP address
+const char* MQTT_SERVER   = "192.168.137.1"; // Replace with your computer/server IP address
 const int   MQTT_PORT     = 1883;
 
 // --- Sensor Objects ---
@@ -229,6 +229,8 @@ void vTaskTelemetryDownlink(void *pvParameters) {
 
         char buffer[512];
         serializeJson(doc, buffer);
+        Serial.println("--- LIVE TELEMETRY ---");
+        Serial.println(buffer);
         mqttClient.publish("spacepoint/telemetry/json", buffer);
 
         // 2. Publish CCSDS Binary Space Packet Telemetry
@@ -323,7 +325,16 @@ void updateQuaternion(float gx, float gy, float gz, float ax, float ay, float az
 void setupWiFi() {
     delay(10);
     Serial.printf("[Wi-Fi] Connecting to %s...\n", WIFI_SSID);
+    WiFi.disconnect();
+    delay(100);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    
+    // Wait for connection to finish so we don't spam the router
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\n[Wi-Fi] Connected!");
 }
 
 void reconnectMQTT() {

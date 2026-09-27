@@ -31,6 +31,16 @@
         <div>EDGE AI ANOMALY SCORE: <span id="hud-ai" class="status-ok">0.00</span></div>
     </div>
 
+    <!-- COMMAND & CONTROL PANEL -->
+    <div id="cc-panel" style="position: absolute; bottom: 10px; left: 10px; padding: 10px; background: rgba(15, 23, 42, 0.85); border: 1px solid #f87171; border-radius: 6px; font-size: 12px;">
+        <div style="color: #f87171; font-weight: bold; margin-bottom: 8px;">UPLINK COMMAND & CONTROL</div>
+        <button onclick="sendCommand('FAULT_01_TUMBLE')" style="background: #334155; color: white; border: 1px solid #64748b; padding: 4px; margin: 2px; cursor: pointer;">Inject Tumble</button>
+        <button onclick="sendCommand('FAULT_02_THERMAL')" style="background: #334155; color: white; border: 1px solid #64748b; padding: 4px; margin: 2px; cursor: pointer;">Inject Thermal</button>
+        <button onclick="sendCommand('FAULT_04_ECLSS_LEAK')" style="background: #334155; color: white; border: 1px solid #64748b; padding: 4px; margin: 2px; cursor: pointer;">Inject ECLSS Leak</button>
+        <br>
+        <button onclick="sendCommand('RESET_FAULTS')" style="background: #166534; color: white; border: 1px solid #22c55e; padding: 4px; margin: 2px; margin-top: 6px; cursor: pointer; width: 100%;">Reset All Faults</button>
+    </div>
+
     <div id="canvas-container"></div>
 
     <script>
@@ -146,6 +156,12 @@
                 console.error("Telemetry parse error:", e);
             }
         });
+
+        function sendCommand(cmd) {
+            console.log("Sending Uplink Command:", cmd);
+            mqttClient.publish('spacepoint/commands/fault', cmd);
+            alert("Command Sent: " + cmd);
+        }
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
