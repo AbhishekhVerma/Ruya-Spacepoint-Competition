@@ -26,15 +26,14 @@ flowchart TD
     end
 
     subgraph GroundSegment["Ground Control Stack (Docker Containers)"]
-        Mosquitto --> Telegraf["Telegraf Telemetry Ingestion"]
-        Mosquitto --> SGP4["SGP4 Keplerian Orbit Propagator"]
+        Mosquitto --> Telegraf["Telegraf Telemetry Ingestion (JSON Flattening)"]
         Telegraf --> InfluxDB["InfluxDB v2 Time-Series Database (port 8086)"]
         InfluxDB --> Grafana["Grafana Mission Control Center (port 3000)"]
     end
 
     subgraph UI["Ground Operations UI"]
         Grafana --> DigitalTwin["3D WebGL CubeSat Digital Twin (Three.js)"]
-        Grafana --> Faults["Red Team Fault Injection & Anomaly Diagnostics"]
+        Grafana --> Faults["Interactive Command & Control (Uplink)"]
     end
 ```
 
@@ -59,7 +58,7 @@ flowchart TD
 +-------------------------------------------------------------------------+
 |                              ESP32-S3 OBC                               |
 |                                                                         |
-|   3.3V  GND  GPIO8(SDA)  GPIO9(SCL)   GPIO4(DHT)   GPIO1(Gas ADC)  5V   |
+|   3.3V  GND  GPIO6(SDA)  GPIO7(SCL)   GPIO5(DHT)   GPIO4(Gas ADC)  5V   |
 +----+-----+------+---------+------------+------------+---------------+---+
      |     |      |         |            |            |               |
      |     |      +----+----+            |            |               |
@@ -86,42 +85,9 @@ flowchart TD
      +-----+----------------------------------------------------------+---> (VCC 5V)
 ```
 
-- **I2C Bus**: `GPIO 8` (SDA), `GPIO 9` (SCL) with 4.7kΩ pull-up resistors to 3.3V.
-- **DHT22 Data**: `GPIO 4` with 10kΩ pull-up resistor to 3.3V.
-- **Gas Sensor Signal**: `GPIO 1` (ADC1_CH0). *Ensure signal output is voltage-divided to 0–3.3V max!*
-- **Gas Sensor Power**: `5V` (for heater element).
-
----
-
-## 📁 Repository Directory Structure
-
-```
-Ruya Spacepoint Competition/
-├── Ruya_SpacePoint_CubeSat/         # Arduino IDE Firmware Project
-│   ├── Ruya_SpacePoint_CubeSat.ino  # Main Arduino sketch file
-│   └── ccsds_telemetry.h            # CCSDS 133.0-B-2 binary header & struct definitions
-├── platformio.ini                   # PlatformIO config & dependencies
-├── include/ccsds_telemetry.h        # Shared CCSDS binary headers
-├── src/main.cpp                     # Main C++ flight firmware source
-├── ground_segment/                  # SGP4 Orbit & Pass Simulator
-│   ├── Dockerfile                   # Docker image recipe for Python simulator
-│   ├── requirements.txt             # Python dependencies (sgp4, paho-mqtt, numpy)
-│   └── simulator.py                 # SGP4 orbit propagator & elevation pass calculator
-├── mosquitto/                       # MQTT Broker Configurations
-│   └── config/mosquitto.conf        # Mosquitto TCP (1883) & WebSockets (9001) setup
-├── telegraf/                        # Telemetry Ingestion Configurations
-│   └── telegraf.conf                # Telegraf MQTT JSON subscriber -> InfluxDB writer
-├── grafana/                         # Grafana Mission Control Provisioning
-│   ├── provisioning/
-│   │   ├── datasources/influxdb.yaml # Automatic InfluxDB Flux datasource connector
-│   │   └── dashboards/dashboards.yaml # Automatic dashboard auto-loader
-│   └── dashboards/
-│       └── threejs_digital_twin.html# 3D WebGL CubeSat Three.js orientation & heatmap
-├── docs/                            # Competition & Instructor Manuals
-│   └── INSTRUCTOR_GUIDE.md          # Wiring, Red Team commands, and viva rubric
-├── docker-compose.yml               # Ground Control multi-container orchestrator
-└── README.md                        # Project documentation (this file)
-```
+- **I2C Bus**: `GPIO 6` (SDA), `GPIO 7` (SCL).
+- **DHT22 Data**: `GPIO 5` with 10kΩ pull-up resistor.
+- **Gas Sensor Signal**: `GPIO 4` (ADC). *Ensure signal output is voltage-divided to 0–3.3V max!*
 
 ---
 
@@ -129,41 +95,20 @@ Ruya Spacepoint Competition/
 
 ### 1. Flash the ESP32-S3 Flight Firmware
 
-#### Option A: Using Arduino IDE (Recommended for Quick Edits)
 1. Open **Arduino IDE** (v2.x recommended).
-2. Go to **File -> Preferences** and add the ESP32 board URL:
-   `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
-3. Install `esp32` by Espressif Systems in **Tools -> Board -> Boards Manager**.
-4. Select `Tools -> Board -> esp32 -> ESP32S3 Dev Module`.
-5. Install required libraries via **Tools -> Manage Libraries**:
-   - `ArduinoJson` (v6.x)
-   - `PubSubClient`
-   - `DHT sensor library`
-   - `BH1750`
-   - `Adafruit MLX90614 Library`
-   - `MPU6050` (by Electronic Cats)
-6. Open [`Ruya_SpacePoint_CubeSat/Ruya_SpacePoint_CubeSat.ino`](file:///C:/Users/abhis/Documents/Spacepoint/Ruya%20SpacePoint%20Comp/New%20folder/Ruya%20Spacepoint%20Competition/Ruya_SpacePoint_CubeSat/Ruya_SpacePoint_CubeSat.ino).
-7. Update `WIFI_SSID`, `WIFI_PASSWORD`, and `MQTT_SERVER` IP (your computer's local IP address).
-8. Click **Upload** (`Ctrl + U`).
-
-#### Option B: Using PlatformIO (VS Code)
-```bash
-pio run --target upload
-```
+2. Install required libraries: `ArduinoJson`, `PubSubClient`, `DHT sensor library`, `BH1750`, `Adafruit MLX90614 Library`, `MPU6050`.
+3. Open [`Ruya_SpacePoint_CubeSat/Ruya_SpacePoint_CubeSat.ino`](./Ruya_SpacePoint_CubeSat/Ruya_SpacePoint_CubeSat.ino).
+4. Update `WIFI_SSID`, `WIFI_PASSWORD`, and `MQTT_SERVER` IP (your computer's local IP address, e.g., Mobile Hotspot IP).
+5. Click **Upload** (`Ctrl + U`).
 
 ---
 
 ### 2. Launch the Ground Control Station (Docker Compose)
 
-Make sure Docker Desktop is installed and running on your computer, then execute:
+Make sure Docker Desktop is installed and running, then execute:
 
 ```bash
 docker compose up -d
-```
-
-Verify containers are running cleanly:
-```bash
-docker compose ps
 ```
 
 ---
@@ -172,34 +117,42 @@ docker compose ps
 
 1. **Grafana Mission Control Dashboard**:
    - Open your browser to `http://localhost:3000`
-   - **Username**: `admin`
-   - **Password**: `spacepoint`
-2. **3D WebGL CubeSat Digital Twin**:
-   - Open browser or embedded panel at `http://localhost:3000/public/threejs_digital_twin.html`
-   - Renders live 3D orientation ($q_0, q_1, q_2, q_3$), surface thermal heat-maps, and eclipse lighting transitions synchronized with sensor readings.
+   - *Note: Anonymous viewing is enabled by default. No login is required for viewers/judges!*
+   - To make edits, **Login:** `admin` / `spacepoint`
+2. **Dashboard Generation**:
+   - The Grafana JSON dashboard is auto-generated via Python using Flux queries mapping to Telegraf metrics.
+3. **3D WebGL CubeSat Digital Twin**:
+   - Embedded natively in the Grafana dashboard. Renders live 3D orientation ($q_0, q_1, q_2, q_3$), surface thermal heat-maps, and eclipse lighting transitions synchronized with real-time sensor readings.
 
 ---
 
-## 🔴 Red Team Fault Injection Suite for Judges / Instructors
+## 🌍 Sharing the Dashboard with Judges (Remote & Local)
 
-Instructors and judges can inject live flight failure anomalies into student telemetry streams using standard MQTT commands:
+### Fast Local Network Sharing (In-Person Demo)
+If the judges are in the same room, have them connect to your Mobile Wi-Fi Hotspot (e.g., `TinyGS-Network`) and type your laptop's IP address directly into their browser:
+👉 `http://192.168.137.1:3000` *(Instant load, zero lag)*
 
-```bash
-# Inject Fault 1: Satellite Tumbling State (High angular velocity spin)
-mosquitto_pub -h localhost -t "spacepoint/commands/fault" -m "FAULT_01_TUMBLE"
-
-# Inject Fault 2: Thermal Radiator Saturation (Spike MLX90614 reading to > 75°C)
-mosquitto_pub -h localhost -t "spacepoint/commands/fault" -m "FAULT_02_THERMAL"
-
-# Inject Fault 3: Avionics I2C Bus Lockup (Simulate sensor bus lockup)
-mosquitto_pub -h localhost -t "spacepoint/commands/fault" -m "FAULT_03_I2C_LOCK"
-
-# Inject Fault 4: ECLSS Cabin Gas Leak (Spike Gas sensor value to critical threshold)
-mosquitto_pub -h localhost -t "spacepoint/commands/fault" -m "FAULT_04_ECLSS_LEAK"
-
-# Reset All Faults to Nominal Mission State
-mosquitto_pub -h localhost -t "spacepoint/commands/fault" -m "RESET_FAULTS"
+### Remote Sharing (Cloudflare Tunnel)
+If presenting remotely, start a free, high-speed Cloudflare tunnel from your PowerShell terminal:
+```powershell
+curl.exe -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -o cloudflared.exe
+.\cloudflared.exe tunnel --url http://localhost:3000
 ```
+Share the `https://[random-words].trycloudflare.com` link printed in your terminal!
+
+---
+
+## 🔴 Red Team Fault Injection Suite & Command & Control
+
+The 3D Digital Twin now features an integrated **Command & Control UI panel**! You no longer need to use CLI tools to inject faults. 
+
+Directly from the Grafana dashboard, you can click buttons to instantly send uplink commands to the ESP32 via MQTT WebSockets:
+*   **Inject Tumble:** Forces a simulated high-spin anomaly.
+*   **Inject Thermal:** Spikes the MLX90614 reading to > 75°C.
+*   **Inject ECLSS Leak:** Spikes the analog gas sensor value to a critical threshold.
+*   **Reset All Faults:** Returns the spacecraft to nominal `NOMINAL_OPS` flight mode.
+
+*(CLI fallback is still supported via `mosquitto_pub -h localhost -t "spacepoint/commands/fault" -m "FAULT_01_TUMBLE"`)*
 
 ---
 
@@ -207,9 +160,9 @@ mosquitto_pub -h localhost -t "spacepoint/commands/fault" -m "RESET_FAULTS"
 
 1. **Space Systems Engineering (25%)**: C&DH state machine implementation, Mission Elapsed Time (MET), and CCSDS packet framing.
 2. **Firmware Integrity & Multi-Tasking (20%)**: FreeRTOS task isolation across dual cores and I2C lockup recovery.
-3. **Ground Control UX & 3D Digital Twin (20%)**: Grafana panel layout, alert thresholds, and 3D attitude rendering.
+3. **Ground Control UX & 3D Digital Twin (20%)**: Grafana panel layout, automated Python generation, and 3D attitude rendering.
 4. **Sensor Calibration & Edge AI (20%)**: Conversion to engineering units and TinyML anomaly detection score.
-5. **Red Team Viva Defense (15%)**: Understanding space environment constraints (vacuum, radiation, thermal extremes).
+5. **Red Team Viva Defense (15%)**: Understanding space environment constraints and demonstrating bi-directional Command & Control uplink.
 
 ---
 
